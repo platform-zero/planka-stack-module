@@ -1,0 +1,13 @@
+{
+  "schemaVersion": 1,
+  "id": "planka",
+  "repo": "planka-stack-module",
+  "runtimeId": "planka",
+  "lifecycle": "active",
+  "dependencies": [
+    "stack-foundation"
+  ],
+  "overlays": [
+    "stack.compose/planka.yml"
+  ]
+}
