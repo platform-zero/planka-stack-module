@@ -16,7 +16,8 @@
   "smoke": "external-only",
   "smokeUnsupportedReason": "requires generated bundle context, deployed networking, secrets, or service dependencies",
   "overlays": [
-    "stack.compose/planka.yml"
+    "stack.compose/planka.yml",
+    "stack.containers/test-runner/playwright-tests/tests/deep/oidc/planka.spec.ts"
   ],
   "testAssets": []
 }
