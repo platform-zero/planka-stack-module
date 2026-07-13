@@ -18,7 +18,8 @@
   "overlays": [
     "stack.compose/planka.yml",
     "stack.containers/test-runner/playwright-tests/tests/deep/oidc/planka.spec.ts",
-    "stack.kotlin/test-runner/src/main/kotlin/org/webservices/testrunner/suites/PlankaProductivityTests.kt"
+    "stack.kotlin/test-runner/src/main/kotlin/org/webservices/testrunner/suites/PlankaProductivityTests.kt",
+    "stack.runtime.yaml"
   ],
   "testAssets": []
 }
