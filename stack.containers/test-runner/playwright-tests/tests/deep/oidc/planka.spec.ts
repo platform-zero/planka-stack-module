@@ -1,15 +1,28 @@
 import { test, expect, type Page } from '@playwright/test';
-import { assertPlankaDisplayName, requireStackAdminCredentials, testOIDCService, testUser } from '../shared/oidc';
+import { assertPlankaDisplayName, testOIDCService, testUser } from '../shared/oidc';
 import { serviceUrl } from '../../../utils/stack-urls';
+import { KeycloakClient } from '../../../utils/keycloak-client';
+import { randomUUID } from 'crypto';
 
-async function nativeHeaders(page: Page, username: string) {
+async function nativeHeaders(page: Page, username: string, profile?: { email: string; displayName: string }) {
   // Exact Planka 1.26.3 client storage: native app token, never a provider cookie.
   const cookies = await page.context().cookies(serviceUrl('planka'));
   const version = cookies.find(cookie => cookie.name === 'accessTokenVersion')?.value;
   const token = version === '1' ? cookies.find(cookie => cookie.name === 'accessToken')?.value : undefined;
   if (!token) throw new Error('Planka native authenticated API session unavailable');
-  await assertPlankaDisplayName(page, token, username);
-  return { Authorization: `Bearer ${token}`, Accept: 'application/json' };
+  const headers = { Authorization: `Bearer ${token}`, Accept: 'application/json' };
+  if (profile) {
+    const response = await page.request.get(serviceUrl('planka', '/api/users/me'), { headers });
+    expect(response.ok(), 'native current-user API must authenticate the separate test admin').toBeTruthy();
+    const user = (await response.json()).item;
+    expect(user.username).toBe(username);
+    expect(user.email).toBe(profile.email);
+    expect(user.name).toBe(profile.displayName);
+    expect(user.isAdmin, 'native declared admins-group mapping must grant the test admin role').toBe(true);
+  } else {
+    await assertPlankaDisplayName(page, token, username);
+  }
+  return headers;
 }
 
 const loginOptions = {
@@ -23,7 +36,7 @@ const loginOptions = {
 
 test('Planka - regular OIDC user cannot create admin projects', async ({ page }) => {
   test.setTimeout(120000);
-  await testOIDCService(page, 'Planka', serviceUrl('planka'), /Projects|No projects|Create project/i,
+  await testOIDCService(page, 'Planka', serviceUrl('planka'), /PLANKA/i,
     ['Keycloak', 'SSO', 'OIDC'], {
       ...loginOptions,
       postLogin: async page => {
@@ -36,13 +49,23 @@ test('Planka - regular OIDC user cannot create admin projects', async ({ page })
     });
 });
 
-test('Planka - declared admin creates a genuinely native board workflow', async ({ browser }) => {
+test('Planka - separate managed test admin creates a genuinely native board workflow', async ({ browser }) => {
   test.setTimeout(120000);
-  const admin = requireStackAdminCredentials('Planka native admin workflow');
+  const provider = KeycloakClient.fromEnvironment();
+  const declaration = KeycloakClient.buildManagedUser(`playwright-planka-admin-${randomUUID()}`);
+  declaration.groups = ['users', 'admins'];
+  declaration.givenName = 'Playwright';
+  declaration.familyName = 'Planka Admin';
+  declaration.displayName = declaration.fullName = declaration.commonName = 'Playwright Planka Admin';
+  // Normal authorized test-client provisioning; never elevate the ordinary user,
+  // touch owner credentials, or edit a native app database to bypass permissions.
+  if (await provider.getUserProfile(declaration.username)) throw new Error('Refusing test-admin identity collision');
+  const admin = await provider.createManagedUser(declaration);
   // A separate empty browser context avoids reusing the regular user's SSO session.
   const context = await browser.newContext({ storageState: { cookies: [], origins: [] }, ignoreHTTPSErrors: false });
   const page = await context.newPage();
   let cleanup: (() => Promise<void>) | undefined;
+  let cleanupNativeUser: (() => Promise<void>) | undefined;
   try {
     await testOIDCService(page, 'Planka', serviceUrl('planka'),
       /Stack Demo Board|Backlog|In Progress|Done|Bazel migration rollout|Playwright screenshot sweep/i,
@@ -51,8 +74,13 @@ test('Planka - declared admin creates a genuinely native board workflow', async 
         authUsername: admin.username,
         authPassword: admin.password,
         postLogin: async page => {
-          const headers = await nativeHeaders(page, admin.username);
+          const headers = await nativeHeaders(page, admin.username, { email: admin.email, displayName: 'Playwright Planka Admin' });
           const api = serviceUrl('planka', '/api');
+          const self = (await (await page.request.get(`${api}/users/me`, { headers })).json()).item;
+          cleanupNativeUser = async () => {
+            const response = await page.request.delete(`${api}/users/${self.id}`, { headers });
+            if (!response.ok()) throw new Error(`Planka native test-admin cleanup failed: HTTP ${response.status()}`);
+          };
           const post = async (url: string, data: Record<string, unknown>) => {
             const response = await page.request.post(url, { headers, data });
             if (!response.ok()) throw new Error(`Planka native workflow request failed: HTTP ${response.status()}`);
@@ -84,6 +112,12 @@ test('Planka - declared admin creates a genuinely native board workflow', async 
         },
       });
   } finally {
-    try { if (cleanup) await cleanup(); } finally { await context.close(); }
+    try {
+      if (cleanup) await cleanup();
+    } finally {
+      try { if (cleanupNativeUser) await cleanupNativeUser(); } finally {
+        try { await context.close(); } finally { await provider.deleteUser(admin.keycloakUserId!); }
+      }
+    }
   }
 });

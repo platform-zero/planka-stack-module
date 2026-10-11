@@ -15,7 +15,10 @@ class NativeEvidenceTests(unittest.TestCase):
         self.assertIn('page.request.post', text)
         self.assertIn('page.request.delete', text)
         self.assertIn('toBe(403)', text)
-        self.assertIn('requireStackAdminCredentials', text)
+        self.assertIn("declaration.groups = ['users', 'admins']", text)
+        self.assertIn('provider.deleteUser(admin.keycloakUserId!)', text)
+        self.assertIn('cleanupNativeUser', text)
+        self.assertIn('expect(user.isAdmin', text)
         self.assertIn('ignoreHTTPSErrors: false', text)
         self.assertIn('toBeVisible', text)
 
