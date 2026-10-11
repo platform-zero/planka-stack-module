@@ -36,6 +36,8 @@ services:
       OIDC_TIMEOUT: "${PLANKA_OIDC_TIMEOUT:-15000}"
       NODE_EXTRA_CA_CERTS: "/ca/caddy-ca.crt"
       SSL_CERT_FILE: "/ca/caddy-ca.crt"
+    extraHosts:
+    - "keycloak.${DOMAIN}:host-gateway"
     networks:
       caddy: null
       postgres: null
@@ -43,7 +45,7 @@ services:
     - "planka_data:/app/public/user-avatars"
     - "planka_attachments:/app/private/attachments"
     - "planka_backgrounds:/app/public/project-background-images"
-    - "caddy_ca:/ca:ro"
+    - "${STACK_VOLUME_ROOT}/caddy_ca:/ca:ro"
     health:
       test:
       - "CMD-SHELL"
