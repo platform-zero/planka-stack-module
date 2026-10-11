@@ -79,7 +79,10 @@ test('Planka - separate managed test admin creates a genuinely native board work
           const api = serviceUrl('planka', '/api');
           const self = (await (await page.request.get(`${api}/users/me`, { headers })).json()).item;
           cleanupNativeUser = async () => {
-            const response = await page.request.delete(`${api}/users/${self.id}`, { headers });
+            // Disconnect the native UI before deleting its own identity; retain
+            // only the context's independent authenticated HTTP request client.
+            await page.close();
+            const response = await context.request.delete(`${api}/users/${self.id}`, { headers, timeout: 30000 });
             if (!response.ok()) throw new Error(`Planka native test-admin cleanup failed: HTTP ${response.status()}`);
           };
           const post = async (url: string, data: Record<string, unknown>) => {
