@@ -52,7 +52,8 @@ test('Planka - regular OIDC user cannot create admin projects', async ({ page })
 test('Planka - separate managed test admin creates a genuinely native board workflow', async ({ browser }) => {
   test.setTimeout(120000);
   const provider = KeycloakClient.fromEnvironment();
-  const declaration = KeycloakClient.buildManagedUser(`playwright-planka-admin-${randomUUID()}`);
+  // Selected Planka1.26.3 username schema: 3–16 alphanumeric/underscore/dot.
+  const declaration = KeycloakClient.buildManagedUser(`pa${randomUUID().replace(/-/g, '').slice(0, 14)}`);
   declaration.groups = ['users', 'admins'];
   declaration.givenName = 'Playwright';
   declaration.familyName = 'Planka Admin';
