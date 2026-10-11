@@ -9,6 +9,9 @@ class NativeEvidenceTests(unittest.TestCase):
         for forbidden in ['createElement', 'innerHTML', '__planka-board-evidence', 'injectPlankaBoardEvidence', 'using UI evidence fallback']:
             self.assertNotIn(forbidden, text)
         self.assertIn('native authenticated API session unavailable', text)
+        self.assertIn("cookie.name === 'accessTokenVersion'", text)
+        self.assertIn("version === '1'", text)
+        self.assertIn("cookie.name === 'accessToken'", text)
         self.assertIn('page.request.post', text)
         self.assertIn('page.request.delete', text)
         self.assertIn('toBeVisible', text)

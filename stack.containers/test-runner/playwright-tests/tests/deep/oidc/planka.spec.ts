@@ -18,30 +18,11 @@ test('Planka - OIDC login flow', async ({ page }) => {
       screenshotFullPage: false,
       postLogin: async (page) => {
         // Native session only: missing API access must fail, never fabricate DOM evidence.
-        const token = await page.evaluate(() => {
-          const seen = new Set<unknown>();
-          const find = (value: unknown): string => {
-            if (!value || seen.has(value)) return '';
-            if (typeof value === 'string') {
-              const trimmed = value.trim().replace(/^Bearer\s+/i, '');
-              if (/^[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+$/.test(trimmed)) return trimmed;
-              try { return find(JSON.parse(trimmed)); } catch { return ''; }
-            }
-            if (typeof value !== 'object') return '';
-            seen.add(value);
-            for (const item of Object.values(value as Record<string, unknown>)) {
-              const found = find(item);
-              if (found) return found;
-            }
-            return '';
-          };
-          for (const key of Object.keys(window.localStorage)) {
-            if (!/token|auth|session|user/i.test(key)) continue;
-            const found = find(window.localStorage.getItem(key));
-            if (found) return found;
-          }
-          return '';
-        });
+        // Planka 1.26.3's own client uses versioned accessToken cookies, not localStorage.
+        // Use only this authenticated browser's native app token; never a provider cookie.
+        const cookies = await page.context().cookies(serviceUrl('planka'));
+        const version = cookies.find(cookie => cookie.name === 'accessTokenVersion')?.value;
+        const token = version === '1' ? cookies.find(cookie => cookie.name === 'accessToken')?.value : undefined;
         if (!token) throw new Error('Planka native authenticated API session unavailable');
         await assertPlankaDisplayName(page, token, testUser.username);
         const headers = { Authorization: `Bearer ${token}`, Accept: 'application/json' };
