@@ -14,6 +14,9 @@ class NativeEvidenceTests(unittest.TestCase):
         self.assertIn("cookie.name === 'accessToken'", text)
         self.assertIn('page.request.post', text)
         self.assertIn('page.request.delete', text)
+        self.assertIn('toBe(403)', text)
+        self.assertIn('requireStackAdminCredentials', text)
+        self.assertIn('ignoreHTTPSErrors: false', text)
         self.assertIn('toBeVisible', text)
 
 if __name__ == '__main__':
